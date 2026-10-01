@@ -345,6 +345,25 @@ function toast(msg){
   document.getElementById('toast-holder').appendChild(el);
   setTimeout(() => el.remove(), 2200);
 }
+async function downloadFile(url, filename){
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('fetch failed');
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename || 'archivo';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+  } catch (e) {
+    console.error(e);
+    toast('No pudimos descargarlo automáticamente, se abre en una pestaña nueva.');
+    window.open(url, '_blank');
+  }
+}
 function driveEmbedUrl(raw){
   if (!raw) return null;
   try {
@@ -1035,11 +1054,11 @@ function renderMediaSection(pub, editable){
     const img = frameClass
       ? `<div class="frame ${frameClass}"><img src="${current.url}" alt="diseño" /></div>`
       : `<img src="${current.url}" alt="diseño" />`;
-    html += `<div class="viewer-dark"><div class="vheader">📄 <span>${esc(current.name||'diseño')}</span>${pub.stage1.format ? `<span class="format-tag">${esc(pub.stage1.format)}</span>` : ''}<a href="${current.url}" download="${esc(current.name||'diseno')}" target="_blank" rel="noreferrer" title="Descargar" style="margin-left:${pub.stage1.format?'10px':'auto'};color:#E8EAED;text-decoration:none;">⬇</a></div><div class="vbody">${img}</div></div>`;
+    html += `<div class="viewer-dark"><div class="vheader">📄 <span>${esc(current.name||'diseño')}</span>${pub.stage1.format ? `<span class="format-tag">${esc(pub.stage1.format)}</span>` : ''}<button data-action="download-file" data-url="${esc(current.url)}" data-name="${esc(current.name||'diseno')}" title="Descargar" style="margin-left:${pub.stage1.format?'10px':'auto'};color:#E8EAED;background:none;border:none;cursor:pointer;font-size:15px;">⬇</button></div><div class="vbody">${img}</div></div>`;
   } else if (current.mime === 'application/pdf') {
-    html += `<div class="viewer-dark"><div class="vheader">📄 <span>${esc(current.name||'diseño')}</span><a href="${current.url}" download="${esc(current.name||'diseno')}" target="_blank" rel="noreferrer" title="Descargar" style="margin-left:auto;color:#E8EAED;text-decoration:none;">⬇</a></div><div class="vbody"><iframe src="${current.url}" style="width:100%;height:480px;border:none;border-radius:3px;background:#fff;"></iframe></div></div>`;
+    html += `<div class="viewer-dark"><div class="vheader">📄 <span>${esc(current.name||'diseño')}</span><button data-action="download-file" data-url="${esc(current.url)}" data-name="${esc(current.name||'diseno')}" title="Descargar" style="margin-left:auto;color:#E8EAED;background:none;border:none;cursor:pointer;font-size:15px;">⬇</button></div><div class="vbody"><iframe src="${current.url}" style="width:100%;height:480px;border:none;border-radius:3px;background:#fff;"></iframe></div></div>`;
   } else {
-    html += `<div class="viewer-dark"><div class="vheader">📎 <span>${esc(current.name||'archivo')}</span><a href="${current.url}" target="_blank" style="margin-left:auto;color:#E8EAED;" rel="noreferrer">⬇</a></div><div class="vbody" style="color:#E8EAED;">No se puede previsualizar este tipo de archivo</div></div>`;
+    html += `<div class="viewer-dark"><div class="vheader">📎 <span>${esc(current.name||'archivo')}</span><button data-action="download-file" data-url="${esc(current.url)}" data-name="${esc(current.name||'archivo')}" title="Descargar" style="margin-left:auto;color:#E8EAED;background:none;border:none;cursor:pointer;font-size:15px;">⬇</button></div><div class="vbody" style="color:#E8EAED;">No se puede previsualizar este tipo de archivo</div></div>`;
   }
   if (current) {
     html += (pmActive && editable) ? `<div class="pin-overlay" data-action="pin-click"></div>` : '';
@@ -1423,6 +1442,7 @@ document.addEventListener('click', (e) => {
   else if (action === 'select-media') { selectedMediaId = id; pendingPin = null; pinMode[2] = false; renderPubContent(); }
   else if (action === 'remove-media-item') { if (confirm('¿Quitar esta imagen del carrusel?')) removeMediaItem(id); }
   else if (action === 'refresh-now') toast('Ya está todo sincronizado en vivo ✓');
+  else if (action === 'download-file') downloadFile(el.dataset.url, el.dataset.name);
 });
 document.getElementById('pub-content') && document.getElementById('pub-content').addEventListener('blur', (e) => {
   if (e.target && e.target.id === 'pub-title') {
