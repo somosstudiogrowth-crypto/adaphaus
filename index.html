@@ -284,10 +284,12 @@ const STATUS_META = {
 };
 const STATUS_ORDER = ['para_revision', 'validado', 'requiere_cambios', 'en_proceso', 'cambios_realizados'];
 const PUBLISH_STATUS_META = {
-  pendiente: { label: 'Todavía no', color: '#F0730A' },
-  listo:     { label: 'Listo para publicar', color: '#22C55E' },
-  publicado: { label: 'Publicado', color: '#6B6B6B' },
+  pendiente:  { label: 'Todavía no', color: '#F0730A' },
+  listo:      { label: 'Listo para publicar', color: '#22C55E' },
+  programado: { label: 'Programado', color: '#3B82F6' },
+  publicado:  { label: 'Publicado', color: '#6B6B6B' },
 };
+const PUBLISH_STATUS_ORDER = ['pendiente', 'listo', 'programado', 'publicado'];
 const FORMAT_OPTIONS = ['Reel', 'Carrusel', 'Placa única', 'Story'];
 const AD_FORMAT_OPTIONS = ['Story', 'Feed'];
 
@@ -572,10 +574,14 @@ async function deleteMonth(monthId){
   const month = months.find(m => m.id === monthId);
   const label = month ? month.label : monthId;
   if (!confirm(`¿Eliminar "${label}" junto con todas sus publicaciones, publicidades y comentarios? Esta acción no se puede deshacer.`)) return;
-  const { error: delPubsErr } = await sb.from('publicaciones').delete().eq('month_id', monthId);
-  if (delPubsErr) { console.error(delPubsErr); toast('No pudimos borrar el mes. Probá de nuevo.'); return; }
-  const { error: delMonthErr } = await sb.from('meses').delete().eq('id', monthId);
-  if (delMonthErr) { console.error(delMonthErr); toast('No pudimos borrar el mes. Probá de nuevo.'); return; }
+  const { data: delPubsData, error: delPubsErr } = await sb.from('publicaciones').delete().eq('month_id', monthId).select('id');
+  if (delPubsErr) { console.error(delPubsErr); toast('No pudimos borrar el mes: ' + delPubsErr.message); return; }
+  const { data: delMonthData, error: delMonthErr } = await sb.from('meses').delete().eq('id', monthId).select('id');
+  if (delMonthErr) { console.error(delMonthErr); toast('No pudimos borrar el mes: ' + delMonthErr.message); return; }
+  if (!delMonthData || delMonthData.length === 0) {
+    toast('Supabase no dejó borrar el mes (probablemente falten los permisos de DELETE — revisá el README).');
+    return;
+  }
   await loadMonths();
   if (currentMonthId === monthId) {
     const next = months[months.length - 1].id;
@@ -786,9 +792,7 @@ function renderCalendar(){
   el.innerHTML = `
     <div style="font-size:19px;font-weight:800;margin-bottom:12px;">${esc(monthLabelFor(currentMonthId))}</div>
     <div class="cal-legend">
-      <span><span class="sw" style="background:#22C55E"></span> Listo para publicar</span>
-      <span><span class="sw" style="background:#6B6B6B"></span> Publicado</span>
-      <span><span class="sw" style="background:#F0730A"></span> Todavía no</span>
+      ${PUBLISH_STATUS_ORDER.map(s => `<span><span class="sw" style="background:${PUBLISH_STATUS_META[s].color}"></span> ${PUBLISH_STATUS_META[s].label}</span>`).join('')}
     </div>
     <div class="cal-grid">${cells}</div>
     ${noDate.length ? `<div class="nodate-list">
@@ -985,7 +989,7 @@ function publishStatusBarHtml(pub){
   return `
     <div class="fieldset-label" style="margin-top:14px;">Estado de publicación</div>
     <div class="status-bar">
-      ${['pendiente','listo','publicado'].map(s => {
+      ${PUBLISH_STATUS_ORDER.map(s => {
         const m = PUBLISH_STATUS_META[s];
         const active = current === s;
         return `<button data-action="set-publish-status" data-status="${s}" ${canEdit?'':'disabled'}
