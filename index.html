@@ -318,6 +318,15 @@ let selectedMediaId = null; // which carousel image is shown in the main viewer
 /* ---------------- helpers ---------------- */
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+/* Supabase Storage rejects keys with accents/special chars ("Invalid key"): keep display name, sanitize only the stored key */
+function safeStorageName(name){
+  const dot = name.lastIndexOf('.');
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot + 1) : '';
+  const cleanBase = base.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'archivo';
+  const cleanExt = ext.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  return cleanExt ? `${cleanBase}.${cleanExt}` : cleanBase;
+}
 function formatDate(ts){ try { return new Date(ts).toLocaleString('es-AR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }); } catch(e){ return ''; } }
 function formatBytes(n){ if(!n) return ''; if(n<1024) return n+' B'; if(n<1024*1024) return Math.round(n/1024)+' KB'; return (n/(1024*1024)).toFixed(1)+' MB'; }
 function formatPubDate(dateStr){
@@ -1026,9 +1035,9 @@ function renderMediaSection(pub, editable){
     const img = frameClass
       ? `<div class="frame ${frameClass}"><img src="${current.url}" alt="diseño" /></div>`
       : `<img src="${current.url}" alt="diseño" />`;
-    html += `<div class="viewer-dark"><div class="vheader">📄 <span>${esc(current.name||'diseño')}</span>${pub.stage1.format ? `<span class="format-tag">${esc(pub.stage1.format)}</span>` : ''}</div><div class="vbody">${img}</div></div>`;
+    html += `<div class="viewer-dark"><div class="vheader">📄 <span>${esc(current.name||'diseño')}</span>${pub.stage1.format ? `<span class="format-tag">${esc(pub.stage1.format)}</span>` : ''}<a href="${current.url}" download="${esc(current.name||'diseno')}" target="_blank" rel="noreferrer" title="Descargar" style="margin-left:${pub.stage1.format?'10px':'auto'};color:#E8EAED;text-decoration:none;">⬇</a></div><div class="vbody">${img}</div></div>`;
   } else if (current.mime === 'application/pdf') {
-    html += `<div class="viewer-dark"><div class="vheader">📄 <span>${esc(current.name||'diseño')}</span></div><div class="vbody"><iframe src="${current.url}" style="width:100%;height:480px;border:none;border-radius:3px;background:#fff;"></iframe></div></div>`;
+    html += `<div class="viewer-dark"><div class="vheader">📄 <span>${esc(current.name||'diseño')}</span><a href="${current.url}" download="${esc(current.name||'diseno')}" target="_blank" rel="noreferrer" title="Descargar" style="margin-left:auto;color:#E8EAED;text-decoration:none;">⬇</a></div><div class="vbody"><iframe src="${current.url}" style="width:100%;height:480px;border:none;border-radius:3px;background:#fff;"></iframe></div></div>`;
   } else {
     html += `<div class="viewer-dark"><div class="vheader">📎 <span>${esc(current.name||'archivo')}</span><a href="${current.url}" target="_blank" style="margin-left:auto;color:#E8EAED;" rel="noreferrer">⬇</a></div><div class="vbody" style="color:#E8EAED;">No se puede previsualizar este tipo de archivo</div></div>`;
   }
@@ -1341,7 +1350,7 @@ function openAddMediaModal(){
     document.getElementById('mm-submit').disabled = true;
     document.getElementById('mm-upload-status').textContent = 'Subiendo…';
     try {
-      const path = `publicaciones/${selectedPubId}/${Date.now()}_${pickedFile.name}`;
+      const path = `publicaciones/${selectedPubId}/${Date.now()}_${safeStorageName(pickedFile.name)}`;
       let blobToUpload = pickedFile, contentType = pickedFile.type, finalName = pickedFile.name, finalMime = pickedFile.type;
       if (pickedFile.type.indexOf('image/') === 0) {
         let dataUrl = await compressImage(pickedFile, 2000, 0.85);
@@ -1360,7 +1369,7 @@ function openAddMediaModal(){
       modal.remove();
     } catch (e) {
       document.getElementById('mm-submit').disabled = false;
-      errEl.textContent = e && e.message === 'too-big' ? 'El archivo supera 8 MB. Usá el link de Drive.' : 'No pudimos subir el archivo. Verificá que exista el bucket "disenos" en Supabase Storage, o probá con el link de Drive.';
+      errEl.textContent = e && e.message === 'too-big' ? 'El archivo supera 8 MB. Usá el link de Drive.' : 'No pudimos subir el archivo. Verificá que exista el bucket "disenos" en Supabase Storage y que tenga permisos de subida (ver README, paso 3), o probá con el link de Drive.' + (e && e.message ? ' Detalle técnico: ' + e.message : '');
       errEl.classList.remove('hidden');
     }
   };
