@@ -820,8 +820,8 @@ function renderCarouselNav(){
   let html = `<button class="nav-arrow" data-action="nav-pub" data-dir="-1" ${idx<=0?'disabled':''}>‹</button>`;
   ids.forEach((id, i) => {
     const s1 = stageStatus(id, 1), s2 = stageStatus(id, 2);
-    const relevant = s1 !== 'validado' ? s1 : s2;
-    const color = STATUS_META[relevant] ? STATUS_META[relevant].color : STATUS_META.sin_revisar.color;
+    const fullyValidated = s1 === 'validado' && s2 === 'validado';
+    const color = fullyValidated ? '#22C55E' : (s1 === 'sin_revisar' ? '#9496A3' : '#EF4444');
     html += `<button class="tab ${id===selectedPubId?'active':''}" data-action="select-pub" data-id="${id}">
       <span class="dot" style="background:${color}"></span>${i+1}
     </button>`;
