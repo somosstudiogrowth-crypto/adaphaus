@@ -10,7 +10,7 @@
     --panel:#FFFFFF; --ink:#18181B; --inkSoft:#5B5B63; --inkFaint:#94949C; --line:#E4E4E9;
     --accent:#A3E635; --accentDark:#5C8A0F; --accentSoft:#F1FBD4; --accentText:#1A2E05;
     --danger:#C0392B; --viewerBg:#202124; --viewerLine:#3C4043;
-    --st-sin:#9496A3; --st-req:#F0730A; --st-proc:#38BDF8; --st-real:#FACC15; --st-val:#22C55E; --st-rev:#14B8A6;
+    --st-sin:#9496A3; --st-req:#F0730A; --st-proc:#38BDF8; --st-real:#FACC15; --st-val:#22C55E; --st-rev:#EC4899;
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--canvas);color:var(--ink);font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;}
@@ -738,7 +738,7 @@ function dashboardRows(ids){
     const s1 = pub.stage1.status, s2 = pub.stage2.status;
     return `<button data-action="select-pub" data-id="${id}" style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer;text-align:left;font-family:inherit;">
       <span style="flex:1;font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(pub.title)}</span>
-      ${badgeHtml(s1, true)}${badgeHtml(s2, true)}
+      ${badgeHtml(s1, true, 1)}${badgeHtml(s2, true, 2)}
     </button>`;
   }).join('') + `</div>`;
 }
@@ -820,7 +820,7 @@ function renderCarouselNav(){
   let html = `<button class="nav-arrow" data-action="nav-pub" data-dir="-1" ${idx<=0?'disabled':''}>‹</button>`;
   ids.forEach((id, i) => {
     const s1 = stageStatus(id, 1), s2 = stageStatus(id, 2);
-    const color = s2 === 'validado' ? '#22C55E' : (s1 === 'sin_revisar' ? '#9496A3' : '#EF4444');
+    const color = STATUS_META[s2] ? STATUS_META[s2].color : STATUS_META.sin_revisar.color;
     html += `<button class="tab ${id===selectedPubId?'active':''}" data-action="select-pub" data-id="${id}">
       <span class="dot" style="background:${color}"></span>${i+1}
     </button>`;
@@ -913,8 +913,8 @@ function renderPubContent(){
   `;
 
   document.getElementById('pub-title').textContent = pub.title;
-  document.getElementById('s1-badge').outerHTML = badgeHtml(s1Status, true);
-  if (stage2Unlocked) { const el = document.getElementById('s2-badge'); if (el) el.outerHTML = badgeHtml(s2Status, true); }
+  document.getElementById('s1-badge').outerHTML = badgeHtml(s1Status, true, 1);
+  if (stage2Unlocked) { const el = document.getElementById('s2-badge'); if (el) el.outerHTML = badgeHtml(s2Status, true, 2); }
 
   document.getElementById('s1-statusbar').innerHTML = statusBarHtml(1, s1Status);
   if (stage2Unlocked) document.getElementById('s2-statusbar').innerHTML = statusBarHtml(2, s2Status);
@@ -949,22 +949,24 @@ function renderPubContent(){
   renderCommentsList(2);
 }
 
-function badgeHtml(status, fileContext){
+function validadoLabelFor(stage){ return stage === 1 ? 'Aprobado para diseñar' : 'Validado'; }
+function badgeHtml(status, fileContext, stage){
   const m = STATUS_META[status] || STATUS_META.sin_revisar;
-  const label = fileContext && m.fileLabel ? m.fileLabel : m.label;
+  const label = status === 'validado' && stage === 1 ? validadoLabelFor(1) : (fileContext && m.fileLabel ? m.fileLabel : m.label);
   return `<span class="badge" style="background:${m.color};color:${m.fg}">${label}</span>`;
 }
 function statusBarHtml(stage, current){
   if (current === 'validado') {
     const m = STATUS_META.validado;
+    const label = validadoLabelFor(stage);
     return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <span class="badge" style="background:${m.color};color:${m.fg};">🔒 Validado</span>
+      <span class="badge" style="background:${m.color};color:${m.fg};">🔒 ${label}</span>
       <span style="font-size:12px;color:var(--inkFaint);">Aprobado por el Cliente. No se puede revertir ni modificar.</span>
     </div>`;
   }
   return STATUS_ORDER.map(s => {
     const meta = STATUS_META[s];
-    const label = meta.fileLabel || meta.label;
+    const label = s === 'validado' ? validadoLabelFor(stage) : (meta.fileLabel || meta.label);
     const active = current === s;
     const mine = statusOwnedByMe(meta.ownerType);
     return `<button data-action="set-stage-status" data-stage="${stage}" data-status="${s}" ${mine?'':'disabled'}
