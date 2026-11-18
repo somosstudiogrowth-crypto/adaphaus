@@ -1000,18 +1000,28 @@ function statusBarHtml(stage, current){
   if (current === 'validado') {
     const m = STATUS_META.validado;
     const label = validadoLabelFor(stage);
+    const approvedNote = stage === 1
+      ? 'No se puede revertir ni modificar.'
+      : 'Aprobado por el Cliente. No se puede revertir ni modificar.';
     return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <span class="badge" style="background:${m.color};color:${m.fg};">🔒 ${label}</span>
-      <span style="font-size:12px;color:var(--inkFaint);">Aprobado por el Cliente. No se puede revertir ni modificar.</span>
+      <span style="font-size:12px;color:var(--inkFaint);">${approvedNote}</span>
     </div>`;
   }
   return STATUS_ORDER.map(s => {
     const meta = STATUS_META[s];
     const label = s === 'validado' ? validadoLabelFor(stage) : (meta.fileLabel || meta.label);
     const active = current === s;
-    const mine = statusOwnedByMe(meta.ownerType);
+    /* Etapa 1 ("Aprobado para diseñar"): además del Cliente, la Agencia y el Diseñador
+       también pueden marcarla, para poder destrabar el diseño sin depender del cliente.
+       La Etapa 2 (validación final del diseño) sigue siendo exclusiva del Cliente. */
+    const stage1ValidationOpenToTeam = s === 'validado' && stage === 1;
+    const mine = stage1ValidationOpenToTeam ? (isTeam(profile.role) || profile.role === 'Cliente') : statusOwnedByMe(meta.ownerType);
+    const disabledTitle = stage1ValidationOpenToTeam
+      ? 'Solo la Agencia, el Diseñador o el Cliente pueden marcar este estado'
+      : 'Solo '+ownerTypeLabel(meta.ownerType)+' puede marcar este estado';
     return `<button data-action="set-stage-status" data-stage="${stage}" data-status="${s}" ${mine?'':'disabled'}
-      title="${mine?'':'Solo '+ownerTypeLabel(meta.ownerType)+' puede marcar este estado'}"
+      title="${mine?'':disabledTitle}"
       style="border:1.5px solid ${meta.color};background:${active?meta.color:'#fff'};color:${active?meta.fg:meta.color};">${label}</button>`;
   }).join('');
 }
